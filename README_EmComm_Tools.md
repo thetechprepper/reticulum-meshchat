@@ -9,6 +9,7 @@ project.
 ## Features
 
 * Fullscreen toggle for NomadNet Pages
+* Bumped Reticulum version to 1.3.5
 
 
 ## Prerequisites
