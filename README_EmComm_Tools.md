@@ -1,9 +1,15 @@
-# Building MeshChat
+# MeshChat for EmComm Tools
 
-The following are my personal notes on building MeshChat. My build
-process is specifically intended to produce a version suitable for
-EmComm Tools and reflects the requirements and constraints of thati
- project.
+The following are my personal notes on building a modified version of
+MeshChat. My build is specifically intended to produce a version suitable
+for EmComm Tools and reflects the requirements and constraints of that
+project.
+
+
+## Features
+
+* Fullscreen toggle for NomadNet Pages
+
 
 ## Prerequisites
 
@@ -77,7 +83,7 @@ python3 -c "import cx_Freeze"
 
 If no output is displayed, the package was installed successfully.
 
-### 2. Build the Electron Package
+### 2. Build the Electron Application
 
 From the root of the MeshChat source tree, run:
 

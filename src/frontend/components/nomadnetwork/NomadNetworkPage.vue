@@ -2,6 +2,7 @@
 
     <!-- nomadnetwork sidebar -->
     <NomadNetworkSidebar
+        v-if="!isFullscreen"
         :nodes="nodes"
         :favourites="favourites"
         :selected-destination-hash="selectedNode?.destination_hash"
@@ -87,7 +88,12 @@
                     <path stroke-linecap="round" stroke-linejoin="round" d="M17.25 6.75 22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3-4.5 16.5" />
                 </svg>
             </button>
-            <button @click="loadPreviousNodePage" type="button" :disabled="nodePagePathHistory.length === 0" :class="[ nodePagePathHistory.length > 0 ? 'text-gray-500 dark:text-gray-300 bg-gray-200 dark:bg-zinc-800 hover:bg-gray-300 dark:hover:bg-zinc-700' : 'text-gray-400 dark:text-gray-500 bg-gray-100 dark:bg-zinc-900']" class="ml-1 my-auto rounded p-1 cursor-pointer">
+            <button @click="isFullscreen = !isFullscreen" type="button" :title="isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'" class="ml-1 my-auto text-gray-500 dark:text-gray-300 bg-gray-200 dark:bg-zinc-800 hover:bg-gray-300 dark:hover:bg-zinc-700 rounded p-1 cursor-pointer">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 9V5.25h3.75M20.25 9V5.25H16.5M3.75 15v3.75h3.75M20.25 15v3.75H16.5"/>
+                </svg>
+            </button>
+<button @click="loadPreviousNodePage" type="button" :disabled="nodePagePathHistory.length === 0" :class="[ nodePagePathHistory.length > 0 ? 'text-gray-500 dark:text-gray-300 bg-gray-200 dark:bg-zinc-800 hover:bg-gray-300 dark:hover:bg-zinc-700' : 'text-gray-400 dark:text-gray-500 bg-gray-100 dark:bg-zinc-900']" class="ml-1 my-auto rounded p-1 cursor-pointer">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5">
                     <path fill-rule="evenodd" d="M17 10a.75.75 0 0 1-.75.75H5.612l4.158 3.96a.75.75 0 1 1-1.04 1.08l-5.5-5.25a.75.75 0 0 1 0-1.08l5.5-5.25a.75.75 0 1 1 1.04 1.08L5.612 9.25H16.25A.75.75 0 0 1 17 10Z" clip-rule="evenodd" />
                 </svg>
@@ -198,6 +204,8 @@ export default {
             selectedNodePath: null,
 
             favourites: [],
+
+            isFullscreen: false,
 
             isLoadingNodePage: false,
             isShowingNodePageSource: false,
