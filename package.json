@@ -1,7 +1,7 @@
 {
   "name": "reticulum-meshchat",
-  "version": "2.3.0",
-  "description": "",
+  "version": "2.3.0-R7B7",
+  "description": "Reticulum MeshChat modified for EmComm Tools",
   "main": "electron/main.js",
   "scripts": {
     "watch": "npm run build-frontend -- --watch",
