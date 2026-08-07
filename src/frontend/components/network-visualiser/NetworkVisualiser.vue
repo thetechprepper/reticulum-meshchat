@@ -36,6 +36,44 @@
                         <div class="text-black dark:text-white">Interfaces</div>
                         <div class="text-sm text-gray-700 dark:text-gray-300">{{ onlineInterfaces.length }} Online, {{ offlineInterfaces.length }} Offline</div>
                     </div>
+                    <div class="p-1">
+                        <label class="text-black dark:text-white text-sm font-medium" for="max-hops-input">Max Hops</label>
+                        <input
+                            id="max-hops-input"
+                            v-model="maxHops"
+                            type="number"
+                            min="1"
+                            step="1"
+                            placeholder="Unlimited"
+                            class="mt-1 block w-full text-sm rounded-md border border-gray-300 dark:border-zinc-600 bg-gray-50 dark:bg-zinc-900 text-gray-900 dark:text-white px-2 py-1 focus:ring-3 focus:ring-blue-300 dark:focus:ring-blue-800"
+                            @change="update"
+                        >
+                    </div>
+                    <div class="p-1">
+                        <div class="text-black dark:text-white text-sm font-medium">Show</div>
+                        <div class="flex items-start mt-1">
+                            <div class="flex items-center h-5">
+                                <input
+                                    v-model="showPeers"
+                                    type="checkbox"
+                                    class="w-4 h-4 border border-gray-300 dark:border-zinc-600 rounded bg-gray-50 dark:bg-zinc-900 focus:ring-3 focus:ring-blue-300 dark:focus:ring-blue-800"
+                                    @change="update"
+                                >
+                            </div>
+                            <label class="ml-2 text-sm font-medium text-gray-900 dark:text-white">Peers</label>
+                        </div>
+                        <div class="flex items-start mt-1">
+                            <div class="flex items-center h-5">
+                                <input
+                                    v-model="showSites"
+                                    type="checkbox"
+                                    class="w-4 h-4 border border-gray-300 dark:border-zinc-600 rounded bg-gray-50 dark:bg-zinc-900 focus:ring-3 focus:ring-blue-300 dark:focus:ring-blue-800"
+                                    @change="update"
+                                >
+                            </div>
+                            <label class="ml-2 text-sm font-medium text-gray-900 dark:text-white">Sites</label>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -62,6 +100,9 @@ export default {
             autoReload: false,
             reloadInterval: null,
             isShowingControls: true,
+            maxHops: null,
+            showPeers: true,
+            showSites: true,
             interfaces: [],
             pathTable: [],
             announces: {},
@@ -354,6 +395,12 @@ export default {
                     continue;
                 }
 
+                // skip this path if it exceeds the max hops filter
+                const maxHops = parseInt(this.maxHops);
+                if(!isNaN(maxHops) && entry.hops > maxHops){
+                    continue;
+                }
+
                 // find what announced this path, or skip showing it for now
                 const announce = this.announces[entry.hash];
                 if(!announce){
@@ -361,7 +408,10 @@ export default {
                 }
 
                 // skip announces if we don't want to show them
-                const aspectsToShow = ["lxmf.delivery", "nomadnetwork.node"];
+                const aspectsToShow = [
+                    ...(this.showPeers ? ["lxmf.delivery"] : []),
+                    ...(this.showSites ? ["nomadnetwork.node"] : []),
+                ];
                 if(!aspectsToShow.includes(announce.aspect)){
                     continue;
                 }
