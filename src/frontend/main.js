@@ -72,6 +72,11 @@ const router = createRouter({
             component: defineAsyncComponent(() => import("./components/ping/PingPage.vue")),
         },
         {
+            name: "paper-message-import",
+            path: '/tools/paper-message-import',
+            component: defineAsyncComponent(() => import("./components/tools/PaperMessageImportPage.vue")),
+        },
+        {
             name: "profile.icon",
             path: '/profile/icon',
             component: defineAsyncComponent(() => import("./components/profile/ProfileIconPage.vue")),
