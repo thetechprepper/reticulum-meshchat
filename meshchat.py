@@ -1767,6 +1767,34 @@ class ReticulumMeshChat:
                 "path_table": path_table,
             })
 
+        # create lxmf paper message
+        @routes.post("/api/v1/lxmf-messages/paper")
+        async def index(request):
+
+            # get request body as json
+            data = await request.json()
+
+            # get data from json
+            destination_hash = data["destination_hash"]
+            content = data["content"]
+
+            try:
+
+                # create lxmf paper message
+                uri = await self.create_paper_message(
+                    destination_hash=destination_hash,
+                    content=content,
+                )
+
+                return web.json_response({
+                    "uri": uri,
+                })
+
+            except Exception as e:
+                return web.json_response({
+                    "message": "Paper Message Creation Failed: {}".format(str(e)),
+                }, status=503)
+
         # send lxmf message
         @routes.post("/api/v1/lxmf-messages/send")
         async def index(request):
@@ -2881,6 +2909,46 @@ class ReticulumMeshChat:
         query = database.LxmfConversationReadState.insert(data)
         query = query.on_conflict(conflict_target=[database.LxmfConversationReadState.destination_hash], update=data)
         query.execute()
+
+    # create an lxmf paper message uri
+    async def create_paper_message(self, destination_hash: str, content: str) -> str:
+
+        # convert destination hash to bytes
+        destination_hash = bytes.fromhex(destination_hash)
+
+        # determine when to timeout finding path
+        timeout_after_seconds = time.time() + 10
+
+        # check if we have a path to the destination
+        if not RNS.Transport.has_path(destination_hash):
+
+            # we don't have a path, so we need to request it
+            RNS.Transport.request_path(destination_hash)
+
+            # wait until we have a path, or give up after the configured timeout
+            while not RNS.Transport.has_path(destination_hash) and time.time() < timeout_after_seconds:
+                await asyncio.sleep(0.1)
+
+        # find destination identity from hash
+        destination_identity = RNS.Identity.recall(destination_hash)
+        if destination_identity is None:
+
+            # we have to bail out, since we don't have the identity/path yet
+            raise Exception("Could not find path to destination. Try again later.")
+
+        # create destination for recipients lxmf delivery address
+        lxmf_destination = RNS.Destination(destination_identity, RNS.Destination.OUT, RNS.Destination.SINGLE, "lxmf", "delivery")
+
+        # create lxmf paper message
+        lxmf_message = LXMF.LXMessage(
+            lxmf_destination,
+            self.local_lxmf_destination,
+            content,
+            desired_method=LXMF.LXMessage.PAPER
+        )
+
+        # return lxm uri
+        return lxmf_message.as_uri()
 
     # handle sending an lxmf message to reticulum
     async def send_message(self, destination_hash: str, content: str,

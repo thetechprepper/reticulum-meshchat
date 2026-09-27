@@ -1,6 +1,6 @@
 {
   "name": "reticulum-meshchat",
-  "version": "2.4.0-R7B11",
+  "version": "2.4.0-R7B26",
   "description": "Reticulum MeshChat modified for EmComm Tools",
   "main": "electron/main.js",
   "scripts": {
