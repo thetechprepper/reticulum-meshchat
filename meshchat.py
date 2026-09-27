@@ -14,6 +14,7 @@ from typing import Callable, List
 import RNS
 import RNS.vendor.umsgpack as msgpack
 import LXMF
+import segno
 from LXMF import LXMRouter
 from aiohttp import web, WSMessage, WSMsgType, WSCloseCode
 import asyncio
@@ -1793,6 +1794,41 @@ class ReticulumMeshChat:
             except Exception as e:
                 return web.json_response({
                     "message": "Paper Message Creation Failed: {}".format(str(e)),
+                }, status=503)
+
+        # Generate QR code for LXMF paper message
+        @routes.post("/api/v1/lxmf-messages/paper/qr")
+        async def index(request):
+
+            data = await request.json()
+            uri = data["uri"]
+
+            try:
+
+                # Generate QR code
+                qr = segno.make(
+                    uri,
+                    error="L",
+                    mode="byte",
+                    boost_error=False
+                )
+
+                qr_buffer = io.BytesIO()
+                qr.save(
+                    qr_buffer,
+                    kind="png",
+                    scale=10,
+                    border=4
+                )
+
+                return web.Response(
+                    body=qr_buffer.getvalue(),
+                    content_type="image/png",
+                )
+
+            except Exception as e:
+                return web.json_response({
+                    "message": "QR Code Generation Failed: {}".format(str(e)),
                 }, status=503)
 
         # send lxmf message

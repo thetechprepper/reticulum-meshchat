@@ -23,6 +23,9 @@
                     <button @click="dismiss" class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 dark:bg-zinc-800 dark:text-zinc-200 dark:border-zinc-600 dark:hover:bg-zinc-700">
                         Close
                     </button>
+                    <button @click="downloadQrCode" class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-600">
+                        Download QR Code
+                    </button>
                     <button @click="copyToClipboard" class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-600">
                         {{ hasCopied ? 'Copied!' : 'Copy to Clipboard' }}
                     </button>
@@ -42,17 +45,52 @@ export default {
         return {
             isShowing: false,
             uri: "",
+            destinationHash: "",
             hasCopied: false,
         };
     },
     methods: {
-        show(uri) {
+        show(uri, destinationHash) {
             this.uri = uri;
+            this.destinationHash = destinationHash;
             this.hasCopied = false;
             this.isShowing = true;
         },
         dismiss() {
             this.isShowing = false;
+        },
+        async downloadQrCode() {
+            try {
+                const response = await window.axios.post(`/api/v1/lxmf-messages/paper/qr`, {
+                    "uri": this.uri,
+                }, {
+                    responseType: "blob",
+                });
+
+                const now = new Date();
+                const year = now.getFullYear();
+                const month = String(now.getMonth() + 1).padStart(2, "0");
+                const day = String(now.getDate()).padStart(2, "0");
+                const hours = String(now.getHours()).padStart(2, "0");
+                const minutes = String(now.getMinutes()).padStart(2, "0");
+                const seconds = String(now.getSeconds()).padStart(2, "0");
+                const timestamp = `${year}${month}${day}-${hours}${minutes}${seconds}`;
+                const fileName = `${this.destinationHash}-${timestamp}.png`;
+
+                const objectUrl = URL.createObjectURL(response.data);
+                const link = document.createElement("a");
+                link.href = objectUrl;
+                link.download = fileName;
+                link.style.display = "none";
+                document.body.append(link);
+                link.click();
+                link.remove();
+                setTimeout(() => URL.revokeObjectURL(objectUrl), 10000);
+
+            } catch(e) {
+                DialogUtils.alert("Failed to download QR code");
+                console.log(e);
+            }
         },
         async copyToClipboard() {
             try {

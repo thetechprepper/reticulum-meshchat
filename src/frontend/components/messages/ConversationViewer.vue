@@ -1044,7 +1044,7 @@ export default {
                 });
 
                 // show generated lxm uri
-                this.$refs["paper-message-dialog"].show(response.data.uri);
+                this.$refs["paper-message-dialog"].show(response.data.uri, this.selectedPeer.destination_hash);
 
             } catch(e) {
 
