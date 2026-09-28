@@ -1831,6 +1831,29 @@ class ReticulumMeshChat:
                     "message": "QR Code Generation Failed: {}".format(str(e)),
                 }, status=503)
 
+        # Decode LXMF paper message
+        @routes.post("/api/v1/lxmf-messages/paper/decode")
+        async def index(request):
+
+            data = await request.json()
+            uri = data["uri"]
+
+            try:
+                lxmf_message = self.decode_paper_message(uri)
+
+                return web.json_response({
+                    "source_hash": lxmf_message.source_hash.hex(),
+                    "destination_hash": lxmf_message.destination_hash.hex(),
+                    "title": lxmf_message.title.decode("utf-8"),
+                    "content": lxmf_message.content.decode("utf-8"),
+                    "timestamp": lxmf_message.timestamp,
+                })
+
+            except Exception as e:
+                return web.json_response({
+                    "message": "Paper Message Decode Failed: {}".format(str(e)),
+                }, status=503)
+
         # send lxmf message
         @routes.post("/api/v1/lxmf-messages/send")
         async def index(request):
@@ -2985,6 +3008,50 @@ class ReticulumMeshChat:
 
         # return lxm uri
         return lxmf_message.as_uri()
+
+    # Decode an LXMF paper message URI
+    def decode_paper_message(self, uri: str) -> LXMF.LXMessage:
+
+        # Validate URI
+        if not uri.startswith("lxm://"):
+            raise ValueError("Invalid LXMF paper message URI.")
+
+        # Remove schema
+        encoded_data = uri[len("lxm://"):]
+
+        # Restore base64 padding
+        encoded_data += "=" * (-len(encoded_data) % 4)
+
+        # Decode paper message
+        paper_packed = base64.urlsafe_b64decode(encoded_data)
+
+        # Ensure message contains at least a destination hash and encrypted payload
+        if len(paper_packed) <= LXMF.LXMessage.DESTINATION_LENGTH:
+            raise ValueError("Invalid LXMF paper message.")
+
+        # Extract destination hash
+        destination_hash = paper_packed[:LXMF.LXMessage.DESTINATION_LENGTH]
+
+        # Make sure paper message is addressed to this MeshChat identity
+        if destination_hash != self.local_lxmf_destination.hash:
+            raise ValueError("Paper message is not addressed to this MeshChat identity.")
+
+        # Extract encrypted message data
+        encrypted_data = paper_packed[LXMF.LXMessage.DESTINATION_LENGTH:]
+
+        # Decrypt message
+        decrypted_data = self.local_lxmf_destination.decrypt(encrypted_data)
+        if decrypted_data is None:
+            raise ValueError("Could not decrypt paper message.")
+
+        # Reconstruct normal LXMF message bytes
+        lxmf_bytes = destination_hash + decrypted_data
+
+        # Unpack LXMF message
+        return LXMF.LXMessage.unpack_from_bytes(
+            lxmf_bytes,
+            original_method=LXMF.LXMessage.PAPER
+        )
 
     # handle sending an lxmf message to reticulum
     async def send_message(self, destination_hash: str, content: str,

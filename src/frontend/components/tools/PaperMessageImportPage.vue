@@ -6,9 +6,13 @@
                 <div class="flex border-b border-gray-300 dark:border-zinc-700 text-gray-700 dark:text-gray-200 p-2 font-semibold">Import Paper Message</div>
                 <div class="dark:divide-zinc-700 text-gray-900 dark:text-gray-100 p-2 space-y-2">
 
-                    <div>
+                    <div class="flex space-x-2">
                         <button @click="pasteFromClipboard" type="button" class="inline-flex items-center rounded-md bg-blue-500 px-2.5 py-1.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500 dark:bg-blue-600 dark:hover:bg-blue-500 dark:focus-visible:outline-blue-600">
                             Paste from Clipboard
+                        </button>
+                        <button @click="decodePaperMessage" :disabled="!canDecodePaperMessage" type="button" class="inline-flex items-center rounded-md px-2.5 py-1.5 text-sm font-semibold text-white shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2" :class="[ canDecodePaperMessage ? 'bg-blue-500 hover:bg-blue-400 focus-visible:outline-blue-500 dark:bg-blue-600 dark:hover:bg-blue-500 dark:focus-visible:outline-blue-600' : 'bg-gray-400 dark:bg-zinc-500 focus-visible:outline-gray-500 dark:focus-visible:outline-zinc-500 cursor-not-allowed']">
+                            <span v-if="isDecodingMessage">Decoding...</span>
+                            <span v-else>Decode Paper Message</span>
                         </button>
                     </div>
 
@@ -17,6 +21,33 @@
                         class="bg-gray-50 border border-gray-300 dark:border-zinc-800 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-zinc-800 dark:text-zinc-100 dark:border-zinc-900"
                         rows="8"
                         placeholder="lxm://"></textarea>
+
+                </div>
+            </div>
+
+            <div v-if="decodedMessage" class="bg-white dark:bg-zinc-800 rounded shadow">
+                <div class="flex border-b border-gray-300 dark:border-zinc-700 text-gray-700 dark:text-gray-200 p-2 font-semibold">Decoded Paper Message</div>
+                <div class="dark:divide-zinc-700 text-gray-900 dark:text-gray-100 p-2 space-y-2">
+
+                    <div>
+                        <div class="text-sm font-semibold">Source</div>
+                        <div class="text-sm break-all">{{ decodedMessage.source_hash }}</div>
+                    </div>
+
+                    <div>
+                        <div class="text-sm font-semibold">Destination</div>
+                        <div class="text-sm break-all">{{ decodedMessage.destination_hash }}</div>
+                    </div>
+
+                    <div v-if="decodedMessage.title">
+                        <div class="text-sm font-semibold">Title</div>
+                        <div class="text-sm">{{ decodedMessage.title }}</div>
+                    </div>
+
+                    <div>
+                        <div class="text-sm font-semibold">Message</div>
+                        <div class="text-sm whitespace-pre-wrap break-words">{{ decodedMessage.content }}</div>
+                    </div>
 
                 </div>
             </div>
@@ -33,7 +64,14 @@ export default {
     data() {
         return {
             paperMessageUri: "",
+            decodedMessage: null,
+            isDecodingMessage: false,
         };
+    },
+    computed: {
+        canDecodePaperMessage() {
+            return this.paperMessageUri.trim().length > 0 && !this.isDecodingMessage;
+        },
     },
     methods: {
         async pasteFromClipboard() {
@@ -43,6 +81,37 @@ export default {
                 DialogUtils.alert("Failed to read from clipboard");
                 console.log(e);
             }
+        },
+        async decodePaperMessage() {
+
+            // do nothing if can't decode message
+            if(!this.canDecodePaperMessage){
+                return;
+            }
+
+            this.isDecodingMessage = true;
+            this.decodedMessage = null;
+
+            try {
+
+                // decode lxmf paper message
+                const response = await window.axios.post(`/api/v1/lxmf-messages/paper/decode`, {
+                    "uri": this.paperMessageUri.trim(),
+                });
+
+                this.decodedMessage = response.data;
+
+            } catch(e) {
+
+                // show error
+                const message = e.response?.data?.message ?? "Failed to decode paper message";
+                DialogUtils.alert(message);
+                console.log(e);
+
+            } finally {
+                this.isDecodingMessage = false;
+            }
+
         },
     },
 }
