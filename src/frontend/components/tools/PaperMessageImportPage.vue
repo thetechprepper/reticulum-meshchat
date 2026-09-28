@@ -49,11 +49,14 @@
                         <div class="text-sm whitespace-pre-wrap break-words">{{ decodedMessage.content }}</div>
                     </div>
 
-                    <div>
+                    <div class="flex space-x-2">
                         <button @click="addToMessageHistory" :disabled="isAddingToMessageHistory || hasAddedToMessageHistory" type="button" class="inline-flex items-center rounded-md px-2.5 py-1.5 text-sm font-semibold text-white shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2" :class="[ !isAddingToMessageHistory && !hasAddedToMessageHistory ? 'bg-blue-500 hover:bg-blue-400 focus-visible:outline-blue-500 dark:bg-blue-600 dark:hover:bg-blue-500 dark:focus-visible:outline-blue-600' : 'bg-gray-400 dark:bg-zinc-500 focus-visible:outline-gray-500 dark:focus-visible:outline-zinc-500 cursor-not-allowed']">
                             <span v-if="isAddingToMessageHistory">Adding...</span>
                             <span v-else-if="hasAddedToMessageHistory">Added to Message History</span>
                             <span v-else>Add to Message History</span>
+                        </button>
+                        <button v-if="hasAddedToMessageHistory" @click="openConversation" type="button" class="inline-flex items-center rounded-md bg-blue-500 px-2.5 py-1.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500 dark:bg-blue-600 dark:hover:bg-blue-500 dark:focus-visible:outline-blue-600">
+                            Open Conversation
                         </button>
                     </div>
 
@@ -73,6 +76,7 @@ export default {
         return {
             paperMessageUri: "",
             decodedMessage: null,
+            importedMessage: null,
             isDecodingMessage: false,
             isAddingToMessageHistory: false,
             hasAddedToMessageHistory: false,
@@ -101,6 +105,7 @@ export default {
 
             this.isDecodingMessage = true;
             this.decodedMessage = null;
+            this.importedMessage = null;
             this.hasAddedToMessageHistory = false;
 
             try {
@@ -136,10 +141,11 @@ export default {
             try {
 
                 // Add LXMF paper message to message history
-                await window.axios.post(`/api/v1/lxmf-messages/paper/import`, {
+                const response = await window.axios.post(`/api/v1/lxmf-messages/paper/import`, {
                     "uri": this.paperMessageUri.trim(),
                 });
 
+                this.importedMessage = response.data.lxmf_message;
                 this.hasAddedToMessageHistory = true;
 
             } catch(e) {
@@ -151,6 +157,22 @@ export default {
             } finally {
                 this.isAddingToMessageHistory = false;
             }
+
+        },
+        openConversation() {
+
+            // Do nothing if no imported message
+            if(!this.importedMessage){
+                return;
+            }
+
+            // Open conversation with sender
+            this.$router.push({
+                name: "messages",
+                params: {
+                    destinationHash: this.importedMessage.source_hash,
+                },
+            });
 
         },
     },
