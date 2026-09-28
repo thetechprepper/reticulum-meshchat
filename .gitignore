@@ -9,3 +9,5 @@ node_modules
 
 # local storage
 storage/
+
+__pycache__

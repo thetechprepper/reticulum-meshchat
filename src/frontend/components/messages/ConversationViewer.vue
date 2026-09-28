@@ -358,6 +358,7 @@
                             <SendMessageButton
                                 @send="sendMessage"
                                 @delivery-method-changed="this.newMessageDeliveryMethod = $event"
+                                @create-paper-message="createPaperMessage"
                                 :is-sending-message="isSendingMessage"
                                 :can-send-message="canSendMessage"
                                 :delivery-method="newMessageDeliveryMethod"/>
@@ -393,6 +394,8 @@
         </div>
     </div>
 
+    <PaperMessageDialog ref="paper-message-dialog"/>
+
 </template>
 
 <script>
@@ -409,6 +412,7 @@ import ConversationDropDownMenu from "./ConversationDropDownMenu.vue";
 import AddImageButton from "./AddImageButton.vue";
 import IconButton from "../IconButton.vue";
 import GlobalEmitter from "../../js/GlobalEmitter";
+import PaperMessageDialog from "./PaperMessageDialog.vue";
 
 export default {
     name: 'ConversationViewer',
@@ -419,6 +423,7 @@ export default {
         MaterialDesignIcon,
         SendMessageButton,
         AddAudioButton,
+        PaperMessageDialog,
     },
     props: {
         myLxmfAddressHash: String,
@@ -1017,6 +1022,39 @@ export default {
             } catch(e) {
                 // do nothing if failed to delete message
             }
+        },
+        async createPaperMessage() {
+
+            // do nothing if can't create message
+            if(!this.canSendMessage){
+                return;
+            }
+
+            // do nothing if no peer selected
+            if(!this.selectedPeer){
+                return;
+            }
+
+            try {
+
+                // create lxmf paper message
+                const response = await window.axios.post(`/api/v1/lxmf-messages/paper`, {
+                    "destination_hash": this.selectedPeer.destination_hash,
+                    "content": this.newMessageText,
+                });
+
+                // show generated lxm uri
+                this.$refs["paper-message-dialog"].show(response.data.uri, this.selectedPeer.destination_hash);
+
+            } catch(e) {
+
+                // show error
+                const message = e.response?.data?.message ?? "failed to create paper message";
+                DialogUtils.alert(message);
+                console.log(e);
+
+            }
+
         },
         async sendMessage() {
 

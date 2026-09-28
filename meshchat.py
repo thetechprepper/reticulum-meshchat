@@ -14,6 +14,7 @@ from typing import Callable, List
 import RNS
 import RNS.vendor.umsgpack as msgpack
 import LXMF
+import segno
 from LXMF import LXMRouter
 from aiohttp import web, WSMessage, WSMsgType, WSCloseCode
 import asyncio
@@ -1767,6 +1768,125 @@ class ReticulumMeshChat:
                 "path_table": path_table,
             })
 
+        # create lxmf paper message
+        @routes.post("/api/v1/lxmf-messages/paper")
+        async def index(request):
+
+            # get request body as json
+            data = await request.json()
+
+            # get data from json
+            destination_hash = data["destination_hash"]
+            content = data["content"]
+
+            try:
+
+                # create lxmf paper message
+                uri = await self.create_paper_message(
+                    destination_hash=destination_hash,
+                    content=content,
+                )
+
+                return web.json_response({
+                    "uri": uri,
+                })
+
+            except Exception as e:
+                return web.json_response({
+                    "message": "Paper Message Creation Failed: {}".format(str(e)),
+                }, status=503)
+
+        # Generate QR code for LXMF paper message
+        @routes.post("/api/v1/lxmf-messages/paper/qr")
+        async def index(request):
+
+            data = await request.json()
+            uri = data["uri"]
+
+            try:
+
+                # Generate QR code
+                qr = segno.make(
+                    uri,
+                    error="L",
+                    mode="byte",
+                    boost_error=False
+                )
+
+                qr_buffer = io.BytesIO()
+                qr.save(
+                    qr_buffer,
+                    kind="png",
+                    scale=10,
+                    border=4
+                )
+
+                return web.Response(
+                    body=qr_buffer.getvalue(),
+                    content_type="image/png",
+                )
+
+            except Exception as e:
+                return web.json_response({
+                    "message": "QR Code Generation Failed: {}".format(str(e)),
+                }, status=503)
+
+        # Decode LXMF paper message
+        @routes.post("/api/v1/lxmf-messages/paper/decode")
+        async def index(request):
+
+            data = await request.json()
+            uri = data["uri"]
+
+            try:
+                lxmf_message = self.decode_paper_message(uri)
+
+                return web.json_response({
+                    "source_hash": lxmf_message.source_hash.hex(),
+                    "destination_hash": lxmf_message.destination_hash.hex(),
+                    "title": lxmf_message.title.decode("utf-8"),
+                    "content": lxmf_message.content.decode("utf-8"),
+                    "timestamp": lxmf_message.timestamp,
+                })
+
+            except Exception as e:
+                return web.json_response({
+                    "message": "Paper Message Decode Failed: {}".format(str(e)),
+                }, status=503)
+
+        # Add LXMF paper message to message history
+        @routes.post("/api/v1/lxmf-messages/paper/import")
+        async def index(request):
+
+            data = await request.json()
+            uri = data["uri"]
+
+            try:
+                lxmf_message = self.decode_paper_message(uri)
+
+                # Check if message already exists in history
+                db_lxmf_message = database.LxmfMessage.get_or_none(database.LxmfMessage.hash == lxmf_message.hash.hex())
+                already_exists = db_lxmf_message is not None
+
+                # Add message using normal inbound LXMF delivery path
+                if not already_exists:
+                    self.on_lxmf_delivery(lxmf_message)
+
+                    # Find imported message from database
+                    db_lxmf_message = database.LxmfMessage.get_or_none(database.LxmfMessage.hash == lxmf_message.hash.hex())
+                    if db_lxmf_message is None:
+                        raise Exception("Could not add paper message to message history.")
+
+                return web.json_response({
+                    "already_exists": already_exists,
+                    "lxmf_message": self.convert_db_lxmf_message_to_dict(db_lxmf_message),
+                })
+
+            except Exception as e:
+                return web.json_response({
+                    "message": "Paper Message Import Failed: {}".format(str(e)),
+                }, status=503)
+
         # send lxmf message
         @routes.post("/api/v1/lxmf-messages/send")
         async def index(request):
@@ -2881,6 +3001,112 @@ class ReticulumMeshChat:
         query = database.LxmfConversationReadState.insert(data)
         query = query.on_conflict(conflict_target=[database.LxmfConversationReadState.destination_hash], update=data)
         query.execute()
+
+    # create an lxmf paper message uri
+    async def create_paper_message(self, destination_hash: str, content: str) -> str:
+
+        # convert destination hash to bytes
+        destination_hash = bytes.fromhex(destination_hash)
+
+        # determine when to timeout finding path
+        timeout_after_seconds = time.time() + 10
+
+        # check if we have a path to the destination
+        if not RNS.Transport.has_path(destination_hash):
+
+            # we don't have a path, so we need to request it
+            RNS.Transport.request_path(destination_hash)
+
+            # wait until we have a path, or give up after the configured timeout
+            while not RNS.Transport.has_path(destination_hash) and time.time() < timeout_after_seconds:
+                await asyncio.sleep(0.1)
+
+        # find destination identity from hash
+        destination_identity = RNS.Identity.recall(destination_hash)
+        if destination_identity is None:
+
+            # we have to bail out, since we don't have the identity/path yet
+            raise Exception("Could not find path to destination. Try again later.")
+
+        # create destination for recipients lxmf delivery address
+        lxmf_destination = RNS.Destination(destination_identity, RNS.Destination.OUT, RNS.Destination.SINGLE, "lxmf", "delivery")
+
+        # create lxmf paper message
+        lxmf_message = LXMF.LXMessage(
+            lxmf_destination,
+            self.local_lxmf_destination,
+            content,
+            desired_method=LXMF.LXMessage.PAPER
+        )
+
+        uri = lxmf_message.as_uri()
+
+        # Mark paper message as sent as we can't tell when it is delivered
+        lxmf_message.state = LXMF.LXMessage.SENT
+        lxmf_message.progress = 1.0
+
+        # Add paper message to message history
+        self.db_upsert_lxmf_message(lxmf_message)
+
+        # Tell websocket clients about the new message
+        await self.websocket_broadcast(json.dumps({
+            "type": "lxmf_message_created",
+            "lxmf_message": self.convert_lxmf_message_to_dict(lxmf_message),
+        }))
+
+        # return lxm uri
+        return uri
+
+    # Decode an LXMF paper message URI
+    def decode_paper_message(self, uri: str) -> LXMF.LXMessage:
+
+        # Validate URI
+        if not uri.startswith("lxm://"):
+            raise ValueError("Invalid LXMF paper message URI.")
+
+        # Remove schema
+        encoded_data = uri[len("lxm://"):]
+
+        # Restore base64 padding
+        encoded_data += "=" * (-len(encoded_data) % 4)
+
+        # Decode paper message
+        paper_packed = base64.urlsafe_b64decode(encoded_data)
+
+        # Ensure message contains at least a destination hash and encrypted payload
+        if len(paper_packed) <= LXMF.LXMessage.DESTINATION_LENGTH:
+            raise ValueError("Invalid LXMF paper message.")
+
+        # Extract destination hash
+        destination_hash = paper_packed[:LXMF.LXMessage.DESTINATION_LENGTH]
+
+        # Make sure paper message is addressed to this MeshChat identity
+        if destination_hash != self.local_lxmf_destination.hash:
+            raise ValueError("Paper message is not addressed to this MeshChat identity.")
+
+        # Extract encrypted message data
+        encrypted_data = paper_packed[LXMF.LXMessage.DESTINATION_LENGTH:]
+
+        # Decrypt message
+        decrypted_data = self.local_lxmf_destination.decrypt(encrypted_data)
+        if decrypted_data is None:
+            raise ValueError("Could not decrypt paper message.")
+
+        # Reconstruct normal LXMF message bytes
+        lxmf_bytes = destination_hash + decrypted_data
+
+        # Unpack LXMF message
+        return LXMF.LXMessage.unpack_from_bytes(
+            lxmf_bytes,
+            original_method=LXMF.LXMessage.PAPER
+        )
+
+        # Mark decoded paper message as delivered
+        lxmf_message.method = LXMF.LXMessage.PAPER
+        lxmf_message.state = LXMF.LXMessage.DELIVERED
+        lxmf_message.progress = 1.0
+
+        return lxmf_message
 
     # handle sending an lxmf message to reticulum
     async def send_message(self, destination_hash: str, content: str,

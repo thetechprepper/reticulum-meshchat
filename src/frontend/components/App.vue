@@ -12,6 +12,7 @@
                     <div class="text-sm text-gray-700 dark:text-white">
                         Developed by
                         <a target="_blank" href="https://liamcottle.com" class="text-blue-500 dark:text-blue-400">Liam Cottle</a>
+                        (EmComm Tools modifications by TTP)
                     </div>
                 </div>
                 <div class="flex my-auto ml-auto mr-0 sm:mr-2 space-x-1 sm:space-x-2">

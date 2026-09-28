@@ -1,12 +1,12 @@
 {
   "name": "reticulum-meshchat",
-  "version": "2.4.0",
-  "description": "",
+  "version": "2.4.0-R7B26",
+  "description": "Reticulum MeshChat modified for EmComm Tools",
   "main": "electron/main.js",
   "scripts": {
     "watch": "npm run build-frontend -- --watch",
     "build-frontend": "vite build",
-    "build-backend": "python setup.py build",
+    "build-backend": "python3 setup.py build",
     "build": "npm run build-frontend && npm run build-backend",
     "electron-postinstall": "electron-builder install-app-deps",
     "electron": "npm run electron-postinstall && npm run build && electron .",

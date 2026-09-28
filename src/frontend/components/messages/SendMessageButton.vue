@@ -31,6 +31,7 @@
                         <button @click="setDeliveryMethod('direct')" type="button" class="w-full block text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-700 whitespace-nowrap">Send over Direct Link</button>
                         <button @click="setDeliveryMethod('opportunistic')" type="button" class="w-full block text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-700 whitespace-nowrap">Send Opportunistically</button>
                         <button @click="setDeliveryMethod('propagated')" type="button" class="w-full block text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-700 whitespace-nowrap">Send to Propagation Node</button>
+                        <button @click="createPaperMessage" type="button" class="w-full block text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-700 whitespace-nowrap">Create Paper Message</button>
                     </div>
                 </div>
             </Transition>
@@ -60,6 +61,10 @@ export default {
         },
         setDeliveryMethod(deliveryMethod) {
             this.$emit("delivery-method-changed", deliveryMethod);
+            this.hideMenu();
+        },
+        createPaperMessage() {
+            this.$emit("create-paper-message");
             this.hideMenu();
         },
         send() {
