@@ -49,6 +49,14 @@
                         <div class="text-sm whitespace-pre-wrap break-words">{{ decodedMessage.content }}</div>
                     </div>
 
+                    <div>
+                        <button @click="addToMessageHistory" :disabled="isAddingToMessageHistory || hasAddedToMessageHistory" type="button" class="inline-flex items-center rounded-md px-2.5 py-1.5 text-sm font-semibold text-white shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2" :class="[ !isAddingToMessageHistory && !hasAddedToMessageHistory ? 'bg-blue-500 hover:bg-blue-400 focus-visible:outline-blue-500 dark:bg-blue-600 dark:hover:bg-blue-500 dark:focus-visible:outline-blue-600' : 'bg-gray-400 dark:bg-zinc-500 focus-visible:outline-gray-500 dark:focus-visible:outline-zinc-500 cursor-not-allowed']">
+                            <span v-if="isAddingToMessageHistory">Adding...</span>
+                            <span v-else-if="hasAddedToMessageHistory">Added to Message History</span>
+                            <span v-else>Add to Message History</span>
+                        </button>
+                    </div>
+
                 </div>
             </div>
 
@@ -66,6 +74,8 @@ export default {
             paperMessageUri: "",
             decodedMessage: null,
             isDecodingMessage: false,
+            isAddingToMessageHistory: false,
+            hasAddedToMessageHistory: false,
         };
     },
     computed: {
@@ -91,6 +101,7 @@ export default {
 
             this.isDecodingMessage = true;
             this.decodedMessage = null;
+            this.hasAddedToMessageHistory = false;
 
             try {
 
@@ -110,6 +121,35 @@ export default {
 
             } finally {
                 this.isDecodingMessage = false;
+            }
+
+        },
+        async addToMessageHistory() {
+
+            // Do nothing if no decoded message
+            if(!this.decodedMessage || this.isAddingToMessageHistory || this.hasAddedToMessageHistory){
+                return;
+            }
+
+            this.isAddingToMessageHistory = true;
+
+            try {
+
+                // Add LXMF paper message to message history
+                await window.axios.post(`/api/v1/lxmf-messages/paper/import`, {
+                    "uri": this.paperMessageUri.trim(),
+                });
+
+                this.hasAddedToMessageHistory = true;
+
+            } catch(e) {
+
+                const message = e.response?.data?.message ?? "Failed to add paper message to message history";
+                DialogUtils.alert(message);
+                console.log(e);
+
+            } finally {
+                this.isAddingToMessageHistory = false;
             }
 
         },

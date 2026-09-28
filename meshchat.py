@@ -1854,6 +1854,39 @@ class ReticulumMeshChat:
                     "message": "Paper Message Decode Failed: {}".format(str(e)),
                 }, status=503)
 
+        # Add LXMF paper message to message history
+        @routes.post("/api/v1/lxmf-messages/paper/import")
+        async def index(request):
+
+            data = await request.json()
+            uri = data["uri"]
+
+            try:
+                lxmf_message = self.decode_paper_message(uri)
+
+                # Check if message already exists in history
+                db_lxmf_message = database.LxmfMessage.get_or_none(database.LxmfMessage.hash == lxmf_message.hash.hex())
+                already_exists = db_lxmf_message is not None
+
+                # Add message using normal inbound LXMF delivery path
+                if not already_exists:
+                    self.on_lxmf_delivery(lxmf_message)
+
+                    # Find imported message from database
+                    db_lxmf_message = database.LxmfMessage.get_or_none(database.LxmfMessage.hash == lxmf_message.hash.hex())
+                    if db_lxmf_message is None:
+                        raise Exception("Could not add paper message to message history.")
+
+                return web.json_response({
+                    "already_exists": already_exists,
+                    "lxmf_message": self.convert_db_lxmf_message_to_dict(db_lxmf_message),
+                })
+
+            except Exception as e:
+                return web.json_response({
+                    "message": "Paper Message Import Failed: {}".format(str(e)),
+                }, status=503)
+
         # send lxmf message
         @routes.post("/api/v1/lxmf-messages/send")
         async def index(request):
@@ -3052,6 +3085,13 @@ class ReticulumMeshChat:
             lxmf_bytes,
             original_method=LXMF.LXMessage.PAPER
         )
+
+        # Mark decoded paper message as delivered
+        lxmf_message.method = LXMF.LXMessage.PAPER
+        lxmf_message.state = LXMF.LXMessage.DELIVERED
+        lxmf_message.progress = 1.0
+
+        return lxmf_message
 
     # handle sending an lxmf message to reticulum
     async def send_message(self, destination_hash: str, content: str,
