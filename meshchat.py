@@ -3039,8 +3039,23 @@ class ReticulumMeshChat:
             desired_method=LXMF.LXMessage.PAPER
         )
 
+        uri = lxmf_message.as_uri()
+
+        # Mark paper message as sent as we can't tell when it is delivered
+        lxmf_message.state = LXMF.LXMessage.SENT
+        lxmf_message.progress = 1.0
+
+        # Add paper message to message history
+        self.db_upsert_lxmf_message(lxmf_message)
+
+        # Tell websocket clients about the new message
+        await self.websocket_broadcast(json.dumps({
+            "type": "lxmf_message_created",
+            "lxmf_message": self.convert_lxmf_message_to_dict(lxmf_message),
+        }))
+
         # return lxm uri
-        return lxmf_message.as_uri()
+        return uri
 
     # Decode an LXMF paper message URI
     def decode_paper_message(self, uri: str) -> LXMF.LXMessage:
