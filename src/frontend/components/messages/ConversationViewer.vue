@@ -1043,6 +1043,9 @@ export default {
                     "content": this.newMessageText,
                 });
 
+                // clear message text
+                this.newMessageText = "";
+
                 // show generated lxm uri
                 this.$refs["paper-message-dialog"].show(response.data.uri, this.selectedPeer.destination_hash);
 
